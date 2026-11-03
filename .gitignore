@@ -1,0 +1,20 @@
+# Virtual environment
+.venv/
+
+# Prerequisites file
+prerequisites_script.txt
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Jupyter / IDE
+.ipynb_checkpoints/
+.vscode/
+
+# Operating system
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.log
