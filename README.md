@@ -29,3 +29,86 @@ The findings above are supported by the following project outputs:
 - `data/modelling_table.csv` – Final cleaned dataset with engineered features and the delay target, used for the analysis.
 - `part_a_clean_eda.py` – Script that generates the modelling table and Part A analysis outputs.
 - `src/shipment_prep.py` – Contains the data-cleaning and feature-engineering functions.
+
+
+
+
+
+
+
+## Model results (regression)
+
+### 1. Baseline performance
+
+The mean baseline model achieved a validation R² of **-0.0212** with an RMSE of **18.8552 hours**.
+
+The negative R² indicates that simply predicting the average delivery time performs worse than using the validation dataset's actual mean as a reference. This confirms that a baseline prediction is insufficient and that the shipment features provide useful predictive information.
+
+### 2. Model comparison
+
+Four candidate models were evaluated using the validation dataset.
+
+| Model | Validation MAE | Validation RMSE | Validation R² |
+|---|---:|---:|---:|
+| Linear Regression | 3.9222 | 4.8912 | 0.9313 |
+| Decision Tree | 5.0971 | 6.2796 | 0.8867 |
+| Random Forest | 4.2505 | 5.4680 | 0.9141 |
+| Gradient Boosting | 3.9166 | 4.9165 | 0.9306 |
+
+**Linear Regression was selected as the final model** because it achieved the lowest validation RMSE of **4.8912 hours**.
+
+Gradient Boosting performed very closely, with a validation RMSE of 4.9165 hours.
+
+### 3. Decision Tree depth analysis
+
+The tree-depth experiment showed how model complexity affects training and validation performance.
+
+- **High bias — depth 1:** Training RMSE was 11.6334 and validation RMSE was 12.1324. Both errors were relatively high, indicating that the model was too simple to capture the underlying patterns.
+- **Best balance — depth 6:** Training RMSE was 4.7114 and validation RMSE was 6.2796. This depth provided the lowest validation RMSE among the tested tree configurations.
+- **High variance — unlimited depth:** Training RMSE reached 0.0000, while validation RMSE increased to 7.7890. The large gap indicates overfitting: the tree learned the training data extremely well but generalized less effectively to unseen data.
+
+Depth 6 was therefore selected for the Decision Tree candidate.
+
+### 4. Gradient Boosting learning-rate experiment
+
+Three learning rates were evaluated while keeping the number of estimators fixed at 100.
+
+| Learning Rate | Validation RMSE | Validation R² |
+|---|---:|---:|
+| 0.01 | 10.0018 | 0.7127 |
+| 0.1 | 4.9165 | 0.9306 |
+| 1.0 | 7.3701 | 0.8440 |
+
+A learning rate of **0.1** produced the best performance.
+
+- **0.01:** Learning was too slow, and 100 estimators were insufficient to capture the patterns effectively.
+- **0.1:** Provided a good balance between learning speed and model performance.
+- **1.0:** The larger updates resulted in less stable learning and poorer validation performance.
+
+### 5. Cross-validation and final model selection
+
+The two best validation models were evaluated using 5-fold cross-validation on the combined training and validation datasets.
+
+| Model | Mean R² | Std R² |
+|---|---:|---:|
+| Linear Regression | 0.9261 | 0.0048 |
+| Gradient Boosting | 0.9352 | 0.0044 |
+
+Gradient Boosting achieved a slightly higher mean cross-validation R². However, Linear Regression had the lowest validation RMSE.
+
+Since the final model selection criterion was the lowest validation RMSE, **Linear Regression was selected**.
+
+### 6. Final test performance
+
+The selected Linear Regression model was evaluated on the untouched test dataset.
+
+| Metric | Test Result |
+|---|---:|
+| MAE | 3.5671 hours |
+| MSE | 20.4624 |
+| RMSE | 4.5235 hours |
+| R² | 0.9493 |
+
+The model achieved a test R² of **0.9493**, indicating that it explains approximately 94.93% of the variation in delivery hours on the test dataset.
+
+The test RMSE of 4.5235 hours is lower than the validation RMSE of 4.8912 hours. Along with the test R² of 0.9493, this indicates that the selected model generalizes well to the held-out test dataset.
