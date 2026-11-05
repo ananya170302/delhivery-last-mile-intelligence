@@ -112,3 +112,188 @@ The selected Linear Regression model was evaluated on the untouched test dataset
 The model achieved a test R² of **0.9493**, indicating that it explains approximately 94.93% of the variation in delivery hours on the test dataset.
 
 The test RMSE of 4.5235 hours is lower than the validation RMSE of 4.8912 hours. Along with the test R² of 0.9493, this indicates that the selected model generalizes well to the held-out test dataset.
+
+
+
+
+
+
+
+## Model Results (Classification)
+
+### 1. Classification Objective
+
+The objective of Part C was to build a classification model that predicts whether a shipment will be delayed.
+
+The target variable is `is_delayed`:
+- `1` = Delayed shipment
+- `0` = On-time shipment
+
+The classification model uses the same 17 pinned features established in Part A, followed by feature selection to identify the most useful predictors.
+
+### 2. Stratified Train / Validation / Test Split
+
+The dataset was divided using stratified sampling to preserve the proportion of delayed and on-time shipments.
+
+| Dataset | Total Rows | Delayed | On-time |
+|---|---:|---:|---:|
+| Training | 840 | 195 | 645 |
+| Validation | 180 | 42 | 138 |
+| Test | 180 | 41 | 139 |
+| **Total** | **1,200** | **278** | **922** |
+
+The test dataset was kept separate from model training, feature selection, and threshold tuning.
+
+### 3. Blind Baseline and Classifier Comparison
+
+A blind baseline was created by predicting every shipment as on-time, without considering any input features.
+
+| Model | Accuracy | Precision | Recall | F1 |
+|---|---:|---:|---:|---:|
+| Blind baseline | 0.767 | 0.000 | 0.000 | 0.000 |
+| Logistic Regression | 0.906 | 0.778 | 0.833 | 0.805 |
+| Decision Tree (depth 6) | 0.883 | 0.756 | 0.738 | 0.747 |
+| Random Forest (default) | 0.906 | 0.838 | 0.738 | 0.785 |
+
+The blind baseline achieved 76.7% accuracy simply because most shipments in the dataset were on-time. However, it failed to identify a single delayed shipment.
+
+This demonstrates why accuracy alone is not sufficient for an imbalanced classification problem. Precision, recall, and F1 are also important when evaluating a delay prediction model.
+
+All three trained classifiers performed better than the blind baseline.
+
+### 4. Feature Importance and Selection
+
+Two approaches were used to evaluate feature importance:
+
+- ANOVA F-scores using `SelectKBest(f_classif)`.
+- Random Forest feature importance using a default Random Forest model.
+
+The top seven features based on ANOVA F-score were:
+
+| Rank | Feature | F-score |
+|---:|---|---:|
+| 1 | distance_km | 389.2131 |
+| 2 | hub_tier | 155.3483 |
+| 3 | hub_daily_capacity | 144.1347 |
+| 4 | n_stops | 125.4798 |
+| 5 | promised_hours | 84.4177 |
+| 6 | rain_flag | 53.0321 |
+| 7 | sale_event_flag | 36.7281 |
+
+The five noise columns were:
+- label_print_batch
+- scanner_build_no
+- tape_roll_no
+- sticker_serial_mod
+- shelf_slot_no
+
+All five noise columns ranked below the top seven and had F-scores below 10.
+
+Their combined Random Forest feature importance was approximately 0.224 (22.4%). This indicates that the noise features collectively received some model importance despite having weak individual statistical relationships with the target.
+
+#### Feature Selection Comparison
+
+Different values of k were evaluated using a Random Forest model with 100 estimators.
+
+| Selected Features (k) | Validation F1 |
+|---:|---:|
+| 5 | 0.6988 |
+| 7 | 0.8333 |
+| 10 | 0.7857 |
+| 12 | 0.8049 |
+| 17 | 0.7848 |
+
+Using seven features achieved the highest validation F1 of 0.8333. Therefore, `k=7` was fixed for the remaining classification experiments.
+
+### 5. Hyperparameter Tuning
+
+Grid Search and Randomized Search were performed using the seven selected features.
+
+The search space included:
+
+- `n_estimators`: 50, 100, 150
+- `max_depth`: 4, 6, 8
+- `min_samples_leaf`: 1, 5, 10
+
+Both approaches used five-fold cross-validation.
+
+| Search Method | Candidates | Total Fits | Best CV Accuracy | Validation F1 |
+|---|---:|---:|---:|---:|
+| Grid Search | 27 | 135 | 0.8952 | 0.7750 |
+| Randomized Search | 9 | 45 | 0.8905 | 0.7848 |
+| Default Random Forest | 1 | 1 | N/A | 0.8333 |
+
+Grid Search achieved slightly higher cross-validation accuracy than Randomized Search.
+
+However, the default Random Forest achieved the highest validation F1 of 0.8333.
+
+This shows that additional hyperparameter tuning did not improve validation F1 in this experiment. The tuned searches optimized cross-validation accuracy, whereas the final configuration was selected using validation F1.
+
+The default Random Forest configuration was therefore selected.
+
+### 6. Operational Alert Threshold
+
+The final model's predicted probabilities were evaluated using thresholds from 0.1 to 0.9.
+
+The operational requirement was to select the highest threshold that maintained validation recall of at least 0.80.
+
+The selected threshold was **0.5**.
+
+At this threshold:
+
+| Metric | Validation Result |
+|---|---:|
+| Accuracy | 0.911 |
+| Precision | 0.795 |
+| Recall | 0.833 |
+| F1 | 0.814 |
+
+At a threshold of 0.6, recall dropped to 0.762, which was below the required 0.80. Therefore, 0.5 was the highest qualifying threshold.
+
+### 7. Final Test Evaluation
+
+The final model was evaluated once on the untouched test dataset using the selected threshold of 0.5.
+
+| Metric | Test Result |
+|---|---:|
+| Accuracy | 0.867 |
+| Precision | 0.689 |
+| Recall | 0.756 |
+| F1 | 0.721 |
+
+#### Test Confusion Matrix
+
+| | Predicted On-time | Predicted Delayed |
+|---|---:|---:|
+| Actually On-time | 125 | 14 |
+| Actually Delayed | 10 | 31 |
+
+Out of 41 delayed shipments in the test dataset, the model correctly identified 31 and missed 10.
+
+The validation recall was 0.833, while test recall was 0.756. This indicates a drop in delayed-shipment detection performance on unseen data.
+
+The test dataset contains only 41 delayed shipments, so each additional missed shipment has a noticeable effect on recall.
+
+### 8. Final Model Configuration
+
+| Parameter | Selected Value |
+|---|---|
+| Feature Selection | SelectKBest |
+| Number of Features | 7 |
+| Model | Random Forest Classifier |
+| Number of Estimators | 100 |
+| Maximum Depth | Unlimited (default) |
+| Minimum Samples per Leaf | 1 |
+| Alert Threshold | 0.5 |
+| Selected Configuration | default_forest_same_7_features |
+
+### 9. Key Findings
+
+1. The blind baseline achieved 76.7% accuracy but failed to identify delayed shipments, highlighting the importance of evaluating recall and F1 alongside accuracy.
+2. Distance, hub characteristics, number of stops, promised delivery time, rain, and sale events were the strongest features based on ANOVA F-scores.
+3. Selecting seven features improved validation F1 to 0.8333 compared with using all 17 features, which achieved 0.7848.
+4. Grid Search and Randomized Search did not outperform the default Random Forest on validation F1.
+5. A threshold of 0.5 provided a validation recall of 0.833 while maintaining precision of 0.795.
+6. The final test F1 was 0.721, with recall of 0.756, showing that model performance decreased on unseen data.
+
+**Note:** The dataset used in this project is synthetic and does not represent a live Delhivery operational feed. The results demonstrate the proposed classification workflow and should not be interpreted as production-level delivery performance.
